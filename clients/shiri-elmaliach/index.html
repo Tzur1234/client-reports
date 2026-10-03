@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>דאשבורד רב מסר</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f4f1; --card:#ffffff; --ink:#1f1b24; --muted:#6f6878; --line:#e8e3dd;
+    --accent:#c2416b; --accent-soft:#f6dbe4; --green:#2f8f6b; --amber:#c98a1b; --gray:#9a93a3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#16141a; --card:#211e27; --ink:#f1edf4; --muted:#a49cad; --line:#332e3b;
+      --accent:#e86a94; --accent-soft:#3a2230; --green:#4fbf95; --amber:#e5ab45; --gray:#7d7686;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Heebo",system-ui,sans-serif;line-height:1.5}
+  .wrap{max-width:1120px;margin:0 auto;padding:28px 16px 48px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+  h1{font-size:28px;font-weight:800;margin:0}
+  .sub{color:var(--muted);font-size:14px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .kpi .label{color:var(--muted);font-size:13px}
+  .kpi .val{font-size:28px;font-weight:800;letter-spacing:-.5px}
+  .kpi .note{font-size:12px;color:var(--muted)}
+  .kpi.hero{background:var(--accent);color:#fff;border-color:transparent}
+  .kpi.hero .label,.kpi.hero .note{color:rgba(255,255,255,.85)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card.wide{grid-column:1/-1}
+  .card h2{font-size:16px;margin:0 0 4px}
+  .card p.hint{margin:0 0 12px;color:var(--muted);font-size:13px}
+  .chart-box{position:relative;height:280px}
+  .bar-row{display:grid;grid-template-columns:minmax(120px,1.4fr) 3fr 56px;gap:10px;align-items:center;margin:9px 0;font-size:14px}
+  .bar-track{background:var(--accent-soft);border-radius:6px;height:12px;overflow:hidden}
+  .bar-fill{background:var(--accent);height:100%;border-radius:6px}
+  .bar-row .n{text-align:left;font-variant-numeric:tabular-nums;font-weight:600}
+  .usage{margin-top:6px;background:var(--accent-soft);border-radius:8px;height:10px;overflow:hidden}
+  .usage div{background:var(--accent);height:100%}
+  footer{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
+  @media (max-width:760px){.grid{grid-template-columns:1fr}.chart-box{height:240px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>דאשבורד רב מסר</h1>
+      <div class="sub">תמונת מצב של החשבון — רשימות, דיוורים ואוטומציות</div>
+    </div>
+    <div class="sub">נתונים נכון ל־3.10.2026</div>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi hero"><div class="label">נמענים פעילים</div><div class="val" id="k-active"></div><div class="note">מתוך <span id="k-total"></span> בסך הכול</div></div>
+    <div class="kpi"><div class="label">הוסרו מרשימות</div><div class="val" id="k-unsub"></div><div class="note">ביטלו הרשמה</div></div>
+    <div class="kpi"><div class="label">חסומים</div><div class="val" id="k-blocked"></div><div class="note">כתובות לא תקינות / חסימה</div></div>
+    <div class="kpi"><div class="label">שליחות שנותרו החודש</div><div class="val" id="k-sends"></div><div class="note">מכסה חודשית</div></div>
+    <div class="kpi"><div class="label">ניצול מכסת נמענים</div><div class="val" id="k-usage"></div><div class="usage"><div id="k-usage-bar"></div></div></div>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi"><div class="label">רשימות</div><div class="val" id="k-lists"></div></div>
+    <div class="kpi"><div class="label">אוטומציות (סדרות)</div><div class="val" id="k-series"></div><div class="note"><span id="k-series-on"></span> פעילות</div></div>
+    <div class="kpi"><div class="label">דיוורים במערכת</div><div class="val" id="k-msgs"></div></div>
+    <div class="kpi"><div class="label">ממוצע נמענים לדיוור</div><div class="val" id="k-avg"></div><div class="note">ב־2 החודשים האחרונים</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card wide">
+      <h2>כמות נמענים לכל דיוור</h2>
+      <p class="hint">דיוורים שנשלחו לרשימת "כל הנמענים" מאוגוסט עד ספטמבר 2026</p>
+      <div class="chart-box"><canvas id="sendsChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>הרכב רשימת "כל הנמענים"</h2>
+      <p class="hint">פעילים מול הוסרו וחסומים</p>
+      <div class="chart-box"><canvas id="compChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>נרשמות להדרכות האחרונות</h2>
+      <p class="hint">סך נרשמות מול פעילות כיום</p>
+      <div class="chart-box"><canvas id="webChart"></canvas></div>
+    </div>
+
+    <div class="card wide">
+      <h2>האוטומציות שהכי הרבה נמענים נכנסו אליהן</h2>
+      <p class="hint">מספר נמענים שהתחילו את הסדרה</p>
+      <div id="seriesBars"></div>
+    </div>
+  </section>
+
+  <footer>נתונים סטטיים שנשלפו מחשבון רב מסר · לעדכון יש לייצר את הקובץ מחדש</footer>
+</div>
+
+<script>
+const DATA = {
+  allList:{ total:5221, active:3276, unsubscribed:985, blocked:1014 },
+  volumes:{ monthlySendsLeft:100277, activeLimit:20000 },
+  counts:{ lists:83, series:57, seriesActive:54, messages:290 },
+  sends:[
+    ["3.8","למה הפוסטים היפים שלך לא מביאים לקוחות?",2851],
+    ["6.8","עובדת כל כך קשה על תוכן...",2897],
+    ["8.8","השקה מאסטרית בתוכן",2919],
+    ["9.8","וואו, איזה טירוף!",2920],
+    ["20.8","פרסום הדרכה 25.8",2897],
+    ["23.8","יותר מחצי מהמקומות נתפסו",2984],
+    ["24.8","החשיפה מחר",3013],
+    ["25.8","עוד 3 שעות מתחילות",3017],
+    ["25.8","עלינו לאוויר!",3016],
+    ["30.8","פספסת את המשדר?",3092],
+    ["31.8","עוד 3 שעות מתחילות",3112],
+    ["31.8","עלינו לאוויר!",3110],
+    ["3.9","הטעות שכולן עושות לפני החגים",3106],
+    ["14.9","מחר בערב: הנוסחה המדויקת",3180],
+    ["15.9","עוד שעתיים מתחילות",3192],
+    ["15.9","עלינו לאוויר!",3190],
+    ["23.9","תזכורת אחרונה",3296],
+    ["23.9","הקישור שלך לזום",3278]
+  ],
+  webinars:[
+    ["27.7",217,176],["25.8",178,143],["31.8",153,137],
+    ["15.9",182,158],["23.9",152,138],["12.10",2,2]
+  ],
+  topSeries:[
+    ["מדריך ווצאפ מגנט לידים",769],
+    ["מדריך חינמי תחום היופי",490],
+    ["לקחו הדרכה חינמית",389],
+    ["נרשמו לוובינר 26.4",338],
+    ["הדרכה חינמית מצולמת",276],
+    ["הדרכה 30.1",266],
+    ["מועדון \"יופי של שיווק\"",214],
+    ["וובינר 27.7.26",209]
+  ]
+};
+
+const fmt = n => n.toLocaleString("he-IL");
+const $ = id => document.getElementById(id);
+const a = DATA.allList;
+$("k-active").textContent = fmt(a.active);
+$("k-total").textContent = fmt(a.total);
+$("k-unsub").textContent = fmt(a.unsubscribed);
+$("k-blocked").textContent = fmt(a.blocked);
+$("k-sends").textContent = fmt(DATA.volumes.monthlySendsLeft);
+const usage = a.active / DATA.volumes.activeLimit * 100;
+$("k-usage").textContent = usage.toFixed(1) + "%";
+$("k-usage-bar").style.width = usage + "%";
+$("k-lists").textContent = DATA.counts.lists;
+$("k-series").textContent = DATA.counts.series;
+$("k-series-on").textContent = DATA.counts.seriesActive;
+$("k-msgs").textContent = DATA.counts.messages;
+const avg = DATA.sends.reduce((s,r)=>s+r[2],0)/DATA.sends.length;
+$("k-avg").textContent = fmt(Math.round(avg));
+
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+Chart.defaults.font.family = "Heebo, system-ui, sans-serif";
+Chart.defaults.color = css("--muted");
+Chart.defaults.borderColor = css("--line");
+
+new Chart($("sendsChart"), {
+  type:"line",
+  data:{
+    labels:DATA.sends.map(r=>r[0]),
+    datasets:[{data:DATA.sends.map(r=>r[2]),borderColor:css("--accent"),backgroundColor:css("--accent-soft"),
+      fill:true,tension:.3,pointRadius:4,pointBackgroundColor:css("--accent")}]
+  },
+  options:{maintainAspectRatio:false,plugins:{legend:{display:false},
+    tooltip:{rtl:true,callbacks:{title:i=>DATA.sends[i[0].dataIndex][1],label:i=>fmt(i.raw)+" נמענים"}}},
+    scales:{y:{suggestedMin:2700,ticks:{callback:v=>fmt(v)}},x:{reverse:true}}}
+});
+
+new Chart($("compChart"), {
+  type:"doughnut",
+  data:{labels:["פעילים","הוסרו","חסומים"],
+    datasets:[{data:[a.active,a.unsubscribed,a.blocked],
+      backgroundColor:[css("--accent"),css("--amber"),css("--gray")],borderWidth:0}]},
+  options:{maintainAspectRatio:false,cutout:"62%",
+    plugins:{legend:{position:"bottom",rtl:true},
+      tooltip:{rtl:true,callbacks:{label:i=>`${i.label}: ${fmt(i.raw)} (${(i.raw/a.total*100).toFixed(0)}%)`}}}}
+});
+
+new Chart($("webChart"), {
+  type:"bar",
+  data:{labels:DATA.webinars.map(r=>"הדרכה "+r[0]),
+    datasets:[
+      {label:"נרשמו",data:DATA.webinars.map(r=>r[1]),backgroundColor:css("--accent-soft"),borderRadius:6},
+      {label:"פעילות כיום",data:DATA.webinars.map(r=>r[2]),backgroundColor:css("--accent"),borderRadius:6}
+    ]},
+  options:{maintainAspectRatio:false,plugins:{legend:{position:"bottom",rtl:true},tooltip:{rtl:true}},
+    scales:{x:{reverse:true}}}
+});
+
+const max = Math.max(...DATA.topSeries.map(r=>r[1]));
+$("seriesBars").innerHTML = DATA.topSeries.map(([name,n]) =>
+  `<div class="bar-row"><div>${name}</div><div class="bar-track"><div class="bar-fill" style="width:${n/max*100}%"></div></div><div class="n">${fmt(n)}</div></div>`
+).join("");
+</script>
+</body>
+</html>
